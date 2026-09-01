@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>오늘의 루틴</title>
+<meta name="description" content="운동과 독서, 오늘 할 일을 한눈에 확인하고 꾸준함을 기록하는 앱">
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#FF7A45">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="오늘의 루틴">
+<link rel="icon" href="./icon-192.png">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<style>
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/woff2/PretendardVariable.woff2') format('woff2-variations');
+  font-weight: 45 920;
+}
+
+:root{
+  --bg:#F3F4F8;
+  --card:#FFFFFF;
+  --line:#EAEBF1;
+  --text:#18181C;
+  --text-dim:#77778A;
+  --text-faint:#A6A6B5;
+  --orange:#FF7A45;
+  --orange-dark:#E85D2B;
+  --orange-wash:#FFF0E8;
+  --green:#2FA36B;
+  --green-dark:#22875A;
+  --green-wash:#E7F6EE;
+  --red:#E5484D;
+  --radius-lg:20px;
+  --radius-md:14px;
+  --radius-sm:10px;
+  --shadow-modal:0 12px 32px rgba(20,20,30,0.16);
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  overscroll-behavior-y:none;
+}
+button, input{font-family:inherit;}
+button{cursor:pointer;border:none;background:none;color:inherit;-webkit-appearance:none;}
+input{border:none;outline:none;color:inherit;background:none;}
+h1,h2,h3,p{margin:0;}
+.hidden{display:none !important;}
+
+.app-shell{
+  max-width:480px;
+  min-height:100vh;
+  min-height:100dvh;
+  margin:0 auto;
+  background:var(--bg);
+  position:relative;
+  padding-bottom:calc(78px + env(safe-area-inset-bottom));
+  display:flex;
+  flex-direction:column;
+}
+
+/* ---------- Header ---------- */
+.topbar{
+  position:sticky; top:0; z-index:20;
+  background:var(--bg);
+  padding:calc(14px + env(safe-area-inset-top)) 20px 10px;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:8px;
+}
+.topbar h1{font-size:20px; font-weight:700; letter-spacing:-0.02em;}
+.topbar .sub{font-size:13px; color:var(--text-dim); margin-top:2px; font-weight:500;}
+.icon-btn{
+  width:38px; height:38px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; color:var(--text);
+  background:var(--card); border:1px solid var(--line);
+}
+.icon-btn:active{transform:scale(0.94);}
+.back-row{display:flex; align-items:center; gap:10px;}
+
+/* ---------- Page container ---------- */
+.page{padding:4px 20px 28px; flex:1;}
+.page.center-empty{display:flex; align-items:center; justify-content:center; flex-direction:column; text-align:center; min-height:60vh;}
+
+/* ---------- Cards ---------- */
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--radius-lg);
+  padding:20px;
+}
+.card + .card{margin-top:14px;}
+.section-title{font-size:15px; font-weight:700; margin:22px 2px 10px; letter-spacing:-0.01em;}
+.section-title:first-child{margin-top:6px;}
+
+/* Hero routine card (orange) */
+.hero-routine{
+  background:linear-gradient(155deg,var(--orange) 0%, var(--orange-dark) 100%);
+  color:#fff; border:none;
+  border-radius:var(--radius-lg);
+  padding:22px 20px 20px;
+}
+.hero-routine .badge{
+  display:inline-flex; align-items:center; gap:6px;
+  font-size:13px; font-weight:600; opacity:0.95;
+  background:rgba(255,255,255,0.18);
+  padding:6px 12px; border-radius:100px; margin-bottom:14px;
+}
+.hero-routine .ex-list{display:flex; flex-direction:column; gap:10px; margin:14px 0 18px;}
+.hero-ex-row{display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.14); border-radius:var(--radius-md); padding:12px 14px;}
+.hero-ex-row .name{font-weight:600; font-size:15px;}
+.hero-ex-row .desc{font-size:12.5px; opacity:0.85; margin-top:2px;}
+.hero-ex-row .dur{font-size:13px; font-weight:600; opacity:0.95;}
+.hero-total{font-size:13px; opacity:0.9; margin-bottom:14px; font-weight:500;}
+
+.btn{
+  width:100%; padding:15px; border-radius:var(--radius-md);
+  font-size:15.5px; font-weight:700; text-align:center;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.btn:active{transform:scale(0.98);}
+.btn-white{background:#fff; color:var(--orange-dark);}
+.btn-orange{background:var(--orange); color:#fff;}
+.btn-green{background:var(--green); color:#fff;}
+.btn-outline{background:var(--card); color:var(--text); border:1px solid var(--line);}
+.btn-ghost{background:var(--orange-wash); color:var(--orange-dark);}
+.btn-sm{padding:11px; font-size:14px; border-radius:var(--radius-sm);}
+.btn:disabled{opacity:0.4;}
+
+/* Completed workout card */
+.done-card{
+  background:var(--green-wash);
+  border:1px solid #D3EEE0;
+  border-radius:var(--radius-lg);
+  padding:18px 20px;
+  display:flex; align-items:center; gap:14px;
+}
+.done-card .check{
+  width:42px; height:42px; border-radius:50%; background:var(--green);
+  color:#fff; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;
+}
+.done-card .title{font-weight:700; font-size:15px; color:var(--green-dark);}
+.done-card .meta{font-size:13px; color:#4c8a6f; margin-top:2px;}
+
+/* Rest day card */
+.rest-card{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.rest-card .title{font-weight:700; font-size:15px;}
+.rest-card .desc{font-size:13px; color:var(--text-dim); margin-top:3px;}
+
+/* Reading card */
+.book-cover{
+  width:52px; height:70px; border-radius:8px; flex-shrink:0;
+  background:linear-gradient(155deg,#3A3A44,#1C1C22);
+  display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px;
+}
+.book-row{display:flex; gap:14px;}
+.book-info{flex:1; min-width:0;}
+.book-title{font-weight:700; font-size:15.5px; line-height:1.3;}
+.book-author{font-size:12.5px; color:var(--text-dim); margin-top:2px;}
+.book-pages{font-size:13px; font-weight:600; color:var(--text-dim); margin-top:8px;}
+
+.progress-track{height:9px; border-radius:100px; background:var(--line); overflow:hidden; margin-top:8px;}
+.progress-fill{height:100%; border-radius:100px; background:linear-gradient(90deg,var(--green),var(--green-dark)); transition:width .4s ease;}
+.progress-fill.orange{background:linear-gradient(90deg,var(--orange),var(--orange-dark));}
+.progress-pct{font-size:12.5px; font-weight:700; color:var(--green-dark); margin-top:6px; text-align:right;}
+
+.pace-box{display:flex; align-items:center; justify-content:space-between; background:var(--bg); border-radius:var(--radius-sm); padding:12px 14px; margin-top:14px; font-size:13px;}
+.pace-box .label{color:var(--text-dim); font-weight:500;}
+.pace-box .val{font-weight:700;}
+.pace-status{display:inline-flex; align-items:center; gap:5px; font-weight:700; padding:3px 10px; border-radius:100px; font-size:12.5px;}
+.pace-status.good{background:var(--green-wash); color:var(--green-dark);}
+.pace-status.slow{background:#FDECEC; color:#C23B3F;}
+
+/* Weekly summary boxes */
+.week-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.week-box{background:var(--card); border:1px solid var(--line); border-radius:var(--radius-md); padding:14px;}
+.week-box .label{font-size:12.5px; color:var(--text-dim); font-weight:600; display:flex; align-items:center; gap:5px;}
+.week-box .num{font-size:19px; font-weight:800; margin-top:8px; letter-spacing:-0.02em;}
+.week-box .sub{font-size:12px; color:var(--text-faint); margin-top:3px; font-weight:500;}
+
+/* Exercise tab */
+.exercise-card{display:flex; gap:14px; align-items:center;}
+.exercise-icon{
+  width:52px; height:52px; border-radius:14px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:22px;
+}
+.exercise-icon.upper{background:var(--orange-wash);}
+.exercise-icon.core{background:#FFF3D6;}
+.exercise-body{flex:1;}
+.exercise-body .name{font-weight:700; font-size:15.5px;}
+.exercise-body .desc{font-size:13px; color:var(--text-dim); margin-top:3px;}
+.exercise-body .dur{font-size:12.5px; color:var(--text-faint); margin-top:6px; font-weight:600;}
+.total-row{display:flex; justify-content:space-between; align-items:center; padding:14px 2px 4px; font-size:14px;}
+.total-row .lbl{color:var(--text-dim); font-weight:600;}
+.total-row .val{font-weight:800; font-size:16px;}
+
+/* Timer run screen */
+.timer-wrap{display:flex; flex-direction:column; align-items:center; padding-top:26px;}
+.timer-phase-label{font-size:14px; font-weight:700; color:var(--orange-dark); background:var(--orange-wash); padding:6px 14px; border-radius:100px;}
+.timer-ex-name{font-size:22px; font-weight:800; margin-top:18px;}
+.timer-ex-desc{font-size:13.5px; color:var(--text-dim); margin-top:4px;}
+.timer-ring{
+  width:230px; height:230px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  margin:32px 0 10px;
+  background:conic-gradient(var(--orange) calc(var(--pct,0)*1%), var(--line) 0);
+  position:relative;
+}
+.timer-ring::before{content:''; position:absolute; inset:14px; background:var(--bg); border-radius:50%;}
+.timer-time{position:relative; font-size:44px; font-weight:800; letter-spacing:-0.02em; font-variant-numeric:tabular-nums;}
+.timer-controls{display:flex; gap:10px; width:100%; margin-top:22px;}
+.timer-controls .btn{flex:1;}
+.timer-steps{display:flex; gap:6px; margin-top:24px;}
+.timer-step-dot{width:8px; height:8px; border-radius:50%; background:var(--line);}
+.timer-step-dot.done{background:var(--green);}
+.timer-step-dot.active{background:var(--orange);}
+
+/* Completion form */
+.confetti-emoji{font-size:44px; text-align:center;}
+.field{margin-top:16px;}
+.field label{font-size:13px; font-weight:700; color:var(--text-dim); display:block; margin-bottom:8px;}
+.field input, .field textarea{
+  width:100%; background:var(--bg); border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:13px 14px; font-size:15px; font-weight:600; color:var(--text);
+}
+.field textarea{font-weight:500; resize:none; min-height:70px;}
+.field .hint{font-size:12px; color:var(--text-faint); margin-top:6px; font-weight:500;}
+
+/* Stepper */
+.stepper{display:flex; align-items:center; justify-content:center; gap:20px;}
+.stepper button{
+  width:46px; height:46px; border-radius:50%; background:var(--bg); border:1px solid var(--line);
+  font-size:20px; font-weight:700; display:flex; align-items:center; justify-content:center;
+}
+.stepper button:active{transform:scale(0.92); background:var(--line);}
+.stepper .num{font-size:30px; font-weight:800; min-width:90px; text-align:center; font-variant-numeric:tabular-nums;}
+.diff-line{text-align:center; margin-top:14px; font-size:14.5px; font-weight:700; color:var(--green-dark); background:var(--green-wash); padding:10px; border-radius:var(--radius-sm);}
+.diff-line.zero{color:var(--text-faint); background:var(--bg);}
+
+/* Plan radio */
+.plan-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.plan-opt{
+  border:1.5px solid var(--line); border-radius:var(--radius-sm); padding:12px; text-align:center;
+  font-size:14px; font-weight:700; color:var(--text-dim); background:var(--card);
+}
+.plan-opt.selected{border-color:var(--green); color:var(--green-dark); background:var(--green-wash);}
+.plan-preview{background:var(--bg); border-radius:var(--radius-sm); padding:12px 14px; margin-top:14px; font-size:13.5px; text-align:center; font-weight:600; color:var(--text-dim);}
+.plan-preview b{color:var(--text); font-weight:800;}
+
+/* Empty state */
+.empty-icon{font-size:40px; margin-bottom:14px;}
+.empty-title{font-size:16px; font-weight:700;}
+.empty-desc{font-size:13.5px; color:var(--text-dim); margin-top:6px; max-width:260px; line-height:1.5;}
+.empty-cta{margin-top:20px; width:auto; padding:13px 24px;}
+
+/* Stats tab */
+.seg{display:flex; background:var(--card); border:1px solid var(--line); border-radius:100px; padding:4px; gap:2px;}
+.seg button{flex:1; padding:9px 0; border-radius:100px; font-size:13.5px; font-weight:700; color:var(--text-dim);}
+.seg button.active{background:var(--text); color:#fff;}
+.stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;}
+.stat-box{background:var(--card); border:1px solid var(--line); border-radius:var(--radius-md); padding:15px;}
+.stat-box .ico{font-size:16px;}
+.stat-box .lbl{font-size:12.5px; color:var(--text-dim); font-weight:600; margin-top:8px;}
+.stat-box .num{font-size:18px; font-weight:800; margin-top:2px;}
+.bars{display:flex; align-items:flex-end; justify-content:space-between; height:90px; margin-top:16px; gap:6px;}
+.bar-col{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:6px;}
+.bar-fill{width:100%; max-width:22px; border-radius:6px 6px 3px 3px; background:var(--line);}
+.bar-fill.has{background:linear-gradient(180deg,var(--orange),var(--orange-dark));}
+.bar-lbl{font-size:10.5px; color:var(--text-faint); font-weight:600;}
+.streak-banner{display:flex; align-items:center; gap:12px; background:linear-gradient(155deg,#2FA36B,#1F7A50); color:#fff; border-radius:var(--radius-lg); padding:16px 18px; margin-top:14px;}
+.streak-banner .n{font-size:26px; font-weight:800;}
+.streak-banner .t{font-size:13px; opacity:0.9; font-weight:600;}
+
+/* Settings */
+.set-row{display:flex; align-items:center; justify-content:space-between; padding:14px 2px;}
+.set-row + .set-row{border-top:1px solid var(--line);}
+.set-row .lbl{font-size:15px; font-weight:600;}
+.set-row .sub{font-size:12.5px; color:var(--text-dim); margin-top:2px;}
+.time-input{background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:14px; font-weight:700; width:118px;}
+.switch{width:46px; height:27px; border-radius:100px; background:var(--line); position:relative; transition:background .2s; flex-shrink:0;}
+.switch::after{content:''; position:absolute; top:2.5px; left:2.5px; width:22px; height:22px; border-radius:50%; background:#fff; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,0.2);}
+.switch.on{background:var(--green);}
+.switch.on::after{transform:translateX(19px);}
+.tip-box{background:var(--orange-wash); border-radius:var(--radius-md); padding:16px; font-size:13px; line-height:1.6; color:#8a4222; font-weight:500;}
+.tip-box b{display:block; margin-bottom:6px; font-size:14px; color:var(--orange-dark);}
+.danger-btn{color:var(--red); font-weight:700; font-size:14.5px;}
+
+/* Modal */
+.modal-backdrop{
+  position:fixed; inset:0; background:rgba(15,15,20,0.42);
+  display:flex; align-items:flex-end; justify-content:center; z-index:100;
+  opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.modal-backdrop.show{opacity:1; pointer-events:auto;}
+.modal-sheet{
+  width:100%; max-width:480px; background:var(--card);
+  border-radius:24px 24px 0 0; padding:22px 20px calc(24px + env(safe-area-inset-bottom));
+  box-shadow:var(--shadow-modal);
+  transform:translateY(16px); transition:transform .25s cubic-bezier(.2,.9,.3,1);
+}
+.modal-backdrop.show .modal-sheet{transform:translateY(0);}
+.modal-handle{width:36px; height:4px; background:var(--line); border-radius:100px; margin:0 auto 16px;}
+.modal-title{font-size:17px; font-weight:800; text-align:center; margin-bottom:18px;}
+
+/* Bottom nav */
+.bottom-nav{
+  position:fixed; bottom:0; left:0; right:0; z-index:30;
+  display:flex; justify-content:center;
+}
+.bottom-nav-inner{
+  width:100%; max-width:480px; background:rgba(255,255,255,0.92);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);
+  display:flex; padding:8px 6px calc(6px + env(safe-area-inset-bottom));
+}
+.nav-item{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0; border-radius:12px; color:var(--text-faint);}
+.nav-item .ic{font-size:20px; line-height:1;}
+.nav-item .lbl{font-size:10.5px; font-weight:700;}
+.nav-item.active{color:var(--orange-dark);}
+.nav-item:active{background:var(--orange-wash);}
+
+/* Toast */
+#toast{
+  position:fixed; left:50%; bottom:100px; transform:translateX(-50%) translateY(10px);
+  background:#1C1C22; color:#fff; padding:12px 20px; border-radius:100px; font-size:13.5px; font-weight:600;
+  opacity:0; pointer-events:none; transition:all .25s; z-index:200; white-space:nowrap;
+}
+#toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+.week-summary-title{display:flex; align-items:center; justify-content:space-between;}
+.week-summary-title .arrow{font-size:13px; color:var(--text-faint); font-weight:600;}
+</style>
+</head>
+<body>
+
+<div class="app-shell" id="app"></div>
+<div id="toast"></div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal-sheet" id="modalSheet"></div>
+</div>
+
+<script>
+/* =========================================================
+   상태 관리 (localStorage)
+========================================================= */
+const STORAGE_KEY = 'routine-app-state-v1';
+
+function defaultState(){
+  return {
+    workout: {
+      days: [2,4,6], // 화,목,토
+      times: {2:'19:00', 4:'19:00', 6:'09:00'},
+      exercises: [
+        {name:'상체 운동', desc:'푸쉬업바 · 무릎꿇고 반 푸쉬업', minutes:20, icon:'💪', kind:'upper'},
+        {name:'복근 운동', desc:'납작배 만들기', minutes:20, icon:'🔥', kind:'core'}
+      ]
+    },
+    workoutLog: [], // {date, seconds, calories, note}
+    books: [],      // {id,title,author,totalPages,startPage,currentPage,planType,planDays,startDate,completedDate}
+    activeBookId: null,
+    readingLog: [], // {date, bookId, page, pagesRead}
+    settings: {
+      workoutReminder: true,
+      readingReminder: false,
+      readingReminderTime: '21:30',
+      lastNotifiedWorkout: null,
+      lastNotifiedReading: null
+    }
+  };
+}
+
+let state = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    return Object.assign(defaultState(), parsed, {
+      workout: Object.assign(defaultState().workout, parsed.workout),
+      settings: Object.assign(defaultState().settings, parsed.settings)
+    });
+  }catch(e){ return defaultState(); }
+}
+function saveState(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+/* =========================================================
+   날짜 유틸
+========================================================= */
+function pad(n){return n.toString().padStart(2,'0');}
+function toDateStr(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+function todayStr(){return toDateStr(new Date());}
+function parseDateStr(s){return new Date(s+'T00:00:00');}
+function daysBetween(a,b){return Math.round((parseDateStr(b)-parseDateStr(a))/86400000);}
+function fmtMinSec(totalSeconds){
+  const m = Math.floor(totalSeconds/60), s = totalSeconds%60;
+  return `${pad(m)}:${pad(s)}`;
+}
+function weekRange(date){
+  const day = date.getDay();
+  const diffToMon = (day+6)%7;
+  const mon = new Date(date); mon.setDate(date.getDate()-diffToMon); mon.setHours(0,0,0,0);
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  return [mon,sun];
+}
+function monthRange(date){
+  const first = new Date(date.getFullYear(), date.getMonth(), 1);
+  const last = new Date(date.getFullYear(), date.getMonth()+1, 0);
+  return [first,last];
+}
+function inRange(dateStr, start, end){
+  const d = parseDateStr(dateStr);
+  return d>=start && d<= new Date(end.getFullYear(),end.getMonth(),end.getDate(),23,59,59);
+}
+const WEEKDAY_KO = ['일','월','화','수','목','금','토'];
+
+/* =========================================================
+   네비게이션
+========================================================= */
+const TABS = ['home','exercise','reading','stats','settings'];
+let currentPage = 'home';
+let statsTab = 'week'; // week | month | all
+
+function parentTabOf(page){
+  if(page==='exercise-run'||page==='exercise-done') return 'exercise';
+  if(page==='book-add') return 'reading';
+  return page;
+}
+function go(page){ currentPage = page; render(); window.scrollTo(0,0); }
+
+/* =========================================================
+   토스트
+========================================================= */
+let toastTimer=null;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 1800);
+}
+
+/* =========================================================
+   운동 로직
+========================================================= */
+function isWorkoutDay(date=new Date()){ return state.workout.days.includes(date.getDay()); }
+function todayWorkoutLog(){ return state.workoutLog.find(w=>w.date===todayStr()); }
+function totalWorkoutMinutes(){ return state.workout.exercises.reduce((s,e)=>s+e.minutes,0); }
+
+// 타이머 상태
+let timer = {
+  exIndex:0, phaseEnd:0, remaining:0, running:false, interval:null,
+  startedAt:0, elapsedTotal:0
+};
+
+function startWorkout(){
+  timer.exIndex = 0;
+  timer.startedAt = Date.now();
+  timer.elapsedTotal = 0;
+  beginPhase(0);
+  go('exercise-run');
+}
+function beginPhase(idx){
+  timer.exIndex = idx;
+  const ex = state.workout.exercises[idx];
+  timer.remaining = ex.minutes*60;
+  timer.phaseEnd = Date.now() + timer.remaining*1000;
+  timer.running = true;
+  clearInterval(timer.interval);
+  timer.interval = setInterval(tick, 1000);
+  renderTimerScreen();
+}
+function tick(){
+  if(!timer.running) return;
+  timer.remaining = Math.max(0, Math.round((timer.phaseEnd-Date.now())/1000));
+  if(timer.remaining<=0){
+    if(timer.exIndex < state.workout.exercises.length-1){
+      beginPhase(timer.exIndex+1);
+    }else{
+      finishWorkoutTimer();
+    }
+    return;
+  }
+  renderTimerScreen();
+}
+function pauseResume(){
+  if(timer.running){
+    timer.running=false;
+    clearInterval(timer.interval);
+  }else{
+    timer.running=true;
+    timer.phaseEnd = Date.now()+timer.remaining*1000;
+    timer.interval=setInterval(tick,1000);
+  }
+  renderTimerScreen();
+}
+function skipPhase(){
+  if(timer.exIndex < state.workout.exercises.length-1){
+    beginPhase(timer.exIndex+1);
+  }else{
+    finishWorkoutTimer();
+  }
+}
+function finishWorkoutTimer(){
+  clearInterval(timer.interval);
+  timer.elapsedTotal = Math.round((Date.now()-timer.startedAt)/1000);
+  go('exercise-done');
+}
+function endWorkoutEarly(){
+  clearInterval(timer.interval);
+  timer.elapsedTotal = Math.round((Date.now()-timer.startedAt)/1000);
+  go('exercise-done');
+}
+function saveWorkoutLog(seconds, calories, note){
+  const date = todayStr();
+  const existingIdx = state.workoutLog.findIndex(w=>w.date===date);
+  const entry = {date, seconds, calories, note};
+  if(existingIdx>=0) state.workoutLog[existingIdx]=entry;
+  else state.workoutLog.push(entry);
+  saveState();
+  toast('오늘 운동을 기록했어요 🎉');
+  go('home');
+}
+
+/* =========================================================
+   독서 로직
+========================================================= */
+function activeBook(){ return state.books.find(b=>b.id===state.activeBookId) || null; }
+function planPerDay(book){
+  if(book.planType==='free' || !book.planDays) return null;
+  return Math.ceil((book.totalPages-book.startPage+1)/book.planDays);
+}
+function paceInfo(book){
+  const perDay = planPerDay(book);
+  if(!perDay) return null;
+  const elapsedDays = Math.max(1, daysBetween(book.startDate, todayStr())+1);
+  const expected = Math.min(book.totalPages, book.startPage + perDay*elapsedDays - perDay);
+  const actualRead = book.currentPage - book.startPage;
+  const expectedRead = Math.max(0, expected - book.startPage);
+  const good = actualRead >= expectedRead - Math.max(2, Math.floor(perDay*0.3));
+  return {perDay, good, elapsedDays, remainDays: Math.max(0, book.planDays-elapsedDays)};
+}
+function addBook(data){
+  const book = {
+    id: 'b'+Date.now(),
+    title: data.title, author: data.author,
+    totalPages: data.totalPages, startPage: data.startPage,
+    currentPage: data.startPage,
+    planType: data.planType, planDays: data.planDays,
+    startDate: todayStr(), completedDate: null
+  };
+  state.books.push(book);
+  state.activeBookId = book.id;
+  saveState();
+  toast('새 책을 시작했어요 📖');
+  go('reading');
+}
+function saveReadingLog(newPage){
+  const book = activeBook();
+  if(!book) return;
+  const pagesRead = newPage - book.currentPage;
+  state.readingLog.push({date: todayStr(), bookId: book.id, page:newPage, pagesRead});
+  book.currentPage = newPage;
+  let completedNow=false;
+  if(book.currentPage >= book.totalPages){
+    book.completedDate = todayStr();
+    completedNow=true;
+  }
+  saveState();
+  closeModal();
+  if(completedNow){
+    toast('책을 완독했어요! 🎉 축하해요');
+    state.activeBookId = null;
+    saveState();
+  }else{
+    toast(`+${pagesRead}페이지 기록했어요`);
+  }
+  go('reading');
+}
+
+/* =========================================================
+   통계 계산
+========================================================= */
+function statsRange(){
+  const now = new Date();
+  if(statsTab==='week') return weekRange(now);
+  if(statsTab==='month') return monthRange(now);
+  return [new Date(2000,0,1), now];
+}
+function computeStats(){
+  const [start,end] = statsRange();
+  const wLogs = state.workoutLog.filter(w=>inRange(w.date,start,end));
+  const rLogs = state.readingLog.filter(r=>inRange(r.date,start,end));
+  const workoutCount = wLogs.length;
+  const workoutMinutes = Math.round(wLogs.reduce((s,w)=>s+w.seconds,0)/60);
+  const workoutCal = wLogs.reduce((s,w)=>s+(Number(w.calories)||0),0);
+  const readDays = new Set(rLogs.map(r=>r.date)).size;
+  const pagesRead = rLogs.reduce((s,r)=>s+Math.max(0,r.pagesRead),0);
+  const completedBooks = state.books.filter(b=>b.completedDate && inRange(b.completedDate,start,end)).length;
+  return {workoutCount, workoutMinutes, workoutCal, readDays, pagesRead, completedBooks};
+}
+function longestReadingStreak(){
+  const dates = [...new Set(state.readingLog.map(r=>r.date))].sort();
+  if(dates.length===0) return 0;
+  let longest=1, cur=1;
+  for(let i=1;i<dates.length;i++){
+    if(daysBetween(dates[i-1],dates[i])===1){ cur++; longest=Math.max(longest,cur); }
+    else cur=1;
+  }
+  return longest;
+}
+function last7DaysMinutes(){
+  const arr=[];
+  for(let i=6;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const ds = toDateStr(d);
+    const log = state.workoutLog.find(w=>w.date===ds);
+    arr.push({label:WEEKDAY_KO[d.getDay()], minutes: log?Math.round(log.seconds/60):0, isToday:i===0});
+  }
+  return arr;
+}
+function thisWeekSummary(){
+  const [start,end] = weekRange(new Date());
+  const wLogs = state.workoutLog.filter(w=>inRange(w.date,start,end));
+  const rLogs = state.readingLog.filter(r=>inRange(r.date,start,end));
+  return {
+    workoutCount: wLogs.length,
+    workoutMinutes: Math.round(wLogs.reduce((s,w)=>s+w.seconds,0)/60),
+    workoutCal: wLogs.reduce((s,w)=>s+(Number(w.calories)||0),0),
+    readDays: new Set(rLogs.map(r=>r.date)).size,
+    pagesRead: rLogs.reduce((s,r)=>s+Math.max(0,r.pagesRead),0)
+  };
+}
+
+/* =========================================================
+   알림 (best-effort, 앱이 열려있을 때만 동작)
+========================================================= */
+function checkReminders(){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  const now = new Date();
+  const hhmm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const today = todayStr();
+  const s = state.settings;
+  if(s.workoutReminder && isWorkoutDay(now) && !todayWorkoutLog()){
+    const t = state.workout.times[now.getDay()];
+    if(t && hhmm>=t && s.lastNotifiedWorkout!==today){
+      new Notification('오늘은 운동하는 날입니다 💪', {body:'루틴을 시작해볼까요?', icon:'./icon-192.png'});
+      s.lastNotifiedWorkout=today; saveState();
+    }
+  }
+  if(s.readingReminder && s.readingReminderTime && hhmm>=s.readingReminderTime && s.lastNotifiedReading!==today){
+    new Notification('오늘 책은 조금 읽으셨나요? 📖', {body:'잠깐이라도 페이지를 기록해봐요', icon:'./icon-192.png'});
+    s.lastNotifiedReading=today; saveState();
+  }
+}
+setInterval(checkReminders, 30000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checkReminders(); });
+
+/* =========================================================
+   모달
+========================================================= */
+function openModal(html){
+  document.getElementById('modalSheet').innerHTML = html;
+  document.getElementById('modalBackdrop').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modalBackdrop').classList.remove('show');
+}
+document.getElementById('modalBackdrop').addEventListener('click', e=>{
+  if(e.target.id==='modalBackdrop') closeModal();
+});
+
+/* =========================================================
+   렌더링
+========================================================= */
+function render(){
+  const app = document.getElementById('app');
+  let html = '';
+  if(currentPage==='home') html = renderHome();
+  else if(currentPage==='exercise') html = renderExercise();
+  else if(currentPage==='exercise-run') html = renderExerciseRun();
+  else if(currentPage==='exercise-done') html = renderExerciseDone();
+  else if(currentPage==='reading') html = renderReading();
+  else if(currentPage==='book-add') html = renderBookAdd();
+  else if(currentPage==='stats') html = renderStats();
+  else if(currentPage==='settings') html = renderSettings();
+
+  if(currentPage!=='exercise-run') html += renderBottomNav();
+  app.innerHTML = html;
+  app.style.paddingBottom = currentPage==='exercise-run' ? '24px' : '';
+  attachHandlers();
+}
+
+function renderBottomNav(){
+  const items = [
+    {id:'home', ic:'🏠', lbl:'홈'},
+    {id:'exercise', ic:'💪', lbl:'운동'},
+    {id:'reading', ic:'📖', lbl:'독서'},
+    {id:'stats', ic:'📊', lbl:'통계'},
+    {id:'settings', ic:'⚙️', lbl:'설정'}
+  ];
+  const active = parentTabOf(currentPage);
+  return `<div class="bottom-nav"><div class="bottom-nav-inner">
+    ${items.map(it=>`
+      <button class="nav-item ${active===it.id?'active':''}" data-nav="${it.id}">
+        <span class="ic">${it.ic}</span><span class="lbl">${it.lbl}</span>
+      </button>`).join('')}
+  </div></div>`;
+}
+
+/* ---------- 홈 ---------- */
+function renderHome(){
+  const wDay = isWorkoutDay();
+  const wLog = todayWorkoutLog();
+  const book = activeBook();
+  const ws = thisWeekSummary();
+
+  let workoutSection = '';
+  if(wDay && wLog){
+    workoutSection = `
+      <div class="done-card">
+        <div class="check">✓</div>
+        <div>
+          <div class="title">오늘 운동 완료</div>
+          <div class="meta">${fmtMinSec(wLog.seconds)} · ${wLog.calories||0} kcal</div>
+        </div>
+      </div>`;
+  }else if(wDay){
+    const exs = state.workout.exercises;
+    workoutSection = `
+      <div class="hero-routine">
+        <div class="badge">🔔 오늘은 운동하는 날입니다</div>
+        <div class="ex-list">
+          ${exs.map(e=>`
+            <div class="hero-ex-row">
+              <div>
+                <div class="name">${e.icon} ${e.name}</div>
+                <div class="desc">${e.desc}</div>
+              </div>
+              <div class="dur">${e.minutes}분</div>
+            </div>`).join('')}
+        </div>
+        <div class="hero-total">총 ${totalWorkoutMinutes()}분</div>
+        <button class="btn btn-white" data-action="start-workout">운동 시작하기</button>
+      </div>`;
+  }else{
+    workoutSection = `
+      <div class="card rest-card">
+        <div>
+          <div class="title">오늘은 쉬는 날이에요</div>
+          <div class="desc">그래도 몸을 움직여볼까요?</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:auto; padding:10px 16px;" data-nav="exercise">운동하기</button>
+      </div>`;
+  }
+
+  let readingSection = '';
+  if(book){
+    const pct = Math.min(100, Math.round((book.currentPage-book.startPage)/(book.totalPages-book.startPage+1)*100)) || Math.round(book.currentPage/book.totalPages*100);
+    readingSection = `
+      <div class="card">
+        <div class="book-row">
+          <div class="book-cover">📖</div>
+          <div class="book-info">
+            <div class="book-title">${escapeHtml(book.title)}</div>
+            <div class="book-pages">${book.currentPage} / ${book.totalPages} 페이지</div>
+            <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+          </div>
+        </div>
+        <button class="btn btn-green" style="margin-top:16px;" data-action="open-reading-log">읽은 페이지 기록하기</button>
+      </div>`;
+  }else{
+    readingSection = `
+      <div class="card" style="text-align:center;">
+        <div style="font-size:28px;">📚</div>
+        <div style="font-weight:700; margin-top:8px;">읽고 있는 책이 없어요</div>
+        <div style="font-size:13px; color:var(--text-dim); margin-top:4px;">새 책을 등록하고 독서를 시작해보세요</div>
+        <button class="btn btn-green" style="margin-top:14px;" data-nav="book-add">책 추가하기</button>
+      </div>`;
+  }
+
+  return `
+    <div class="topbar">
+      <div>
+        <h1>안녕하세요 👋</h1>
+        <div class="sub">오늘도 한 걸음, 함께해요</div>
+      </div>
+    </div>
+    <div class="page">
+      <div class="section-title">오늘의 루틴</div>
+      ${workoutSection}
+      <div class="section-title">오늘의 독서</div>
+      ${readingSection}
+      <div class="section-title">이번 주 진행 상황</div>
+      <div class="week-grid">
+        <div class="week-box">
+          <div class="label">💪 운동</div>
+          <div class="num">${ws.workoutCount} / ${state.workout.days.length}회</div>
+          <div class="sub">${ws.workoutMinutes}분 · ${ws.workoutCal}kcal</div>
+        </div>
+        <div class="week-box">
+          <div class="label">📖 독서</div>
+          <div class="num">${ws.readDays}일</div>
+          <div class="sub">${ws.pagesRead}페이지</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---------- 운동 탭 ---------- */
+function renderExercise(){
+  const exs = state.workout.exercises;
+  return `
+    <div class="topbar">
+      <div>
+        <h1>오늘 운동</h1>
+        <div class="sub">${new Date().getMonth()+1}월 ${new Date().getDate()}일 (${WEEKDAY_KO[new Date().getDay()]})</div>
+      </div>
+    </div>
+    <div class="page">
+      ${exs.map(e=>`
+        <div class="card exercise-card">
+          <div class="exercise-icon ${e.kind}">${e.icon}</div>
+          <div class="exercise-body">
+            <div class="name">${e.name}</div>
+            <div class="desc">${e.desc}</div>
+            <div class="dur">⏱ ${e.minutes}분</div>
+          </div>
+        </div>`).join('')}
+      <div class="total-row">
+        <div class="lbl">총 운동 시간</div>
+        <div class="val">${totalWorkoutMinutes()}분</div>
+      </div>
+      <button class="btn btn-green" data-action="start-workout" style="margin-top:8px;">${totalWorkoutMinutes()}분 운동 시작</button>
+      <div class="field" style="text-align:center; margin-top:14px;">
+        <div class="hint">상체 ${exs[0]?.minutes||0}분 → 복근 ${exs[1]?.minutes||0}분 순서로 진행돼요</div>
+      </div>
+    </div>`;
+}
+
+function renderTimerScreen(){
+  // 부분 갱신 (매초 전체 렌더 방지)
+  const wrap = document.getElementById('timerLive');
+  if(!wrap) return;
+  const ex = state.workout.exercises[timer.exIndex];
+  const totalSec = ex.minutes*60;
+  const pct = Math.round(((totalSec-timer.remaining)/totalSec)*100);
+  wrap.innerHTML = `
+    <div class="timer-phase-label">${timer.exIndex+1} / ${state.workout.exercises.length} 단계</div>
+    <div class="timer-ex-name">${ex.icon} ${ex.name}</div>
+    <div class="timer-ex-desc">${ex.desc}</div>
+    <div class="timer-ring" style="--pct:${pct}"><div class="timer-time">${fmtMinSec(timer.remaining)}</div></div>
+    <div class="timer-steps">
+      ${state.workout.exercises.map((e,i)=>`<div class="timer-step-dot ${i<timer.exIndex?'done':(i===timer.exIndex?'active':'')}"></div>`).join('')}
+    </div>
+    <div class="timer-controls">
+      <button class="btn btn-outline" data-action="pause-resume">${timer.running?'⏸ 일시정지':'▶ 계속하기'}</button>
+      <button class="btn btn-ghost" data-action="skip-phase">다음 단계</button>
+    </div>
+    <button class="btn btn-outline" style="margin-top:10px; color:var(--red);" data-action="end-early">운동 종료하기</button>`;
+}
+
+function renderExerciseRun(){
+  return `
+    <div class="topbar back-row">
+      <button class="icon-btn" data-action="confirm-exit-timer">✕</button>
+      <div><h1 style="font-size:16px;">운동 중</h1></div>
+      <div style="width:38px;"></div>
+    </div>
+    <div class="page timer-wrap" id="timerLive"></div>`;
+}
+
+function renderExerciseDone(){
+  const est = Math.round(timer.elapsedTotal/60*7.5);
+  return `
+    <div class="topbar"><h1>운동 완료</h1></div>
+    <div class="page">
+      <div class="confetti-emoji">🎉</div>
+      <div style="text-align:center; font-weight:800; font-size:18px; margin-top:6px;">오늘 운동 완료!</div>
+      <div style="text-align:center; color:var(--text-dim); font-size:13.5px; margin-top:4px;">수고하셨어요 💪</div>
+      <div class="card" style="margin-top:20px;">
+        <div class="field" style="margin-top:0;">
+          <label>운동 시간</label>
+          <input id="inpDuration" type="text" value="${fmtMinSec(timer.elapsedTotal)}">
+          <div class="hint">mm:ss 형식으로 직접 수정할 수 있어요</div>
+        </div>
+        <div class="field">
+          <label>소모 칼로리</label>
+          <input id="inpCalories" type="number" inputmode="numeric" value="${est}">
+          <div class="hint">스마트워치 값이 있다면 입력해주세요 (예상값: ${est}kcal)</div>
+        </div>
+        <div class="field">
+          <label>메모 (선택)</label>
+          <textarea id="inpNote" placeholder="오늘 운동은 어땠나요?"></textarea>
+        </div>
+      </div>
+      <button class="btn btn-green" style="margin-top:16px;" data-action="save-workout">기록 저장</button>
+    </div>`;
+}
+
+/* ---------- 독서 탭 ---------- */
+function renderReading(){
+  const book = activeBook();
+  const completedBooks = state.books.filter(b=>b.completedDate);
+
+  if(!book){
+    return `
+      <div class="topbar">
+        <h1>독서</h1>
+        <button class="icon-btn" data-nav="book-add">＋</button>
+      </div>
+      <div class="page center-empty">
+        <div class="empty-icon">📚</div>
+        <div class="empty-title">읽고 있는 책이 없어요</div>
+        <div class="empty-desc">새 책을 등록하고 오늘부터 독서를 시작해보세요. 페이지만 기록하면 진행률은 자동으로 계산돼요.</div>
+        <button class="btn btn-green empty-cta" data-nav="book-add">＋ 새 책 추가하기</button>
+      </div>`;
+  }
+
+  const pct = Math.max(0,Math.min(100, Math.round((book.currentPage-book.startPage)/(book.totalPages-book.startPage||1)*100)));
+  const pace = paceInfo(book);
+
+  return `
+    <div class="topbar">
+      <h1>독서</h1>
+      <button class="icon-btn" data-nav="book-add">＋</button>
+    </div>
+    <div class="page">
+      <div class="card">
+        <div class="book-row">
+          <div class="book-cover">📖</div>
+          <div class="book-info">
+            <div class="book-title">${escapeHtml(book.title)}</div>
+            <div class="book-author">${escapeHtml(book.author||'저자 미상')}</div>
+          </div>
+        </div>
+        <div class="book-pages">${book.currentPage} / ${book.totalPages} 페이지</div>
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-pct">${pct}%</div>
+
+        ${pace ? `
+          <div class="pace-box">
+            <div><div class="label">권장 페이스</div><div class="val">하루 ${pace.perDay}페이지</div></div>
+            <div class="pace-status ${pace.good?'good':'slow'}">${pace.good?'😊 정상':'🐢 느림'}</div>
+          </div>` : `
+          <div class="pace-box"><div class="label">자유 플랜으로 진행 중</div></div>`}
+
+        <button class="btn btn-green" style="margin-top:16px;" data-action="open-reading-log">오늘 읽은 페이지 기록</button>
+      </div>
+
+      ${completedBooks.length ? `
+        <div class="section-title">완독한 책 (${completedBooks.length}권)</div>
+        <div class="card">
+          ${completedBooks.map(b=>`
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; ${b!==completedBooks[completedBooks.length-1]?'border-bottom:1px solid var(--line);':''}">
+              <div style="font-size:14px; font-weight:600;">📗 ${escapeHtml(b.title)}</div>
+              <div style="font-size:12px; color:var(--text-faint);">${b.completedDate}</div>
+            </div>`).join('')}
+        </div>` : ''}
+    </div>`;
+}
+
+function readingLogModalHtml(){
+  const book = activeBook();
+  return `
+    <div class="modal-handle"></div>
+    <div class="modal-title">오늘 읽은 페이지 기록</div>
+    <div style="text-align:center; font-size:13px; color:var(--text-dim); font-weight:600;">현재 페이지 <b style="color:var(--text)">${book.currentPage}p</b></div>
+    <div class="field">
+      <label style="text-align:center; display:block;">오늘 어디까지 읽으셨나요?</label>
+      <div class="stepper">
+        <button data-step="-1">−</button>
+        <div class="num" id="stepNum">${book.currentPage}</div>
+        <button data-step="1">＋</button>
+      </div>
+    </div>
+    <div class="diff-line zero" id="diffLine">아직 변화가 없어요</div>
+    <button class="btn btn-green" style="margin-top:18px;" data-action="confirm-reading-log" id="confirmReadBtn" disabled>기록하기</button>`;
+}
+
+/* ---------- 책 추가 ---------- */
+let bookAddPlan = '30';
+function renderBookAdd(){
+  bookAddPlan = '30';
+  return `
+    <div class="topbar back-row">
+      <button class="icon-btn" data-nav="reading">←</button>
+      <h1 style="font-size:17px;">새로운 책</h1>
+      <div style="width:38px;"></div>
+    </div>
+    <div class="page">
+      <div class="card">
+        <div class="field" style="margin-top:0;">
+          <label>책 제목</label>
+          <input id="bkTitle" type="text" placeholder="예: 아주 작은 습관의 힘">
+        </div>
+        <div class="field">
+          <label>저자</label>
+          <input id="bkAuthor" type="text" placeholder="예: 제임스 클리어">
+        </div>
+        <div class="field">
+          <label>전체 페이지</label>
+          <input id="bkTotal" type="number" inputmode="numeric" placeholder="300">
+        </div>
+        <div class="field">
+          <label>시작 페이지</label>
+          <input id="bkStart" type="number" inputmode="numeric" value="1">
+        </div>
+        <div class="field">
+          <label>플랜 선택</label>
+          <div class="plan-grid" id="planGrid">
+            ${['20','30','40','free'].map(p=>`
+              <button class="plan-opt ${p===bookAddPlan?'selected':''}" data-plan="${p}">${p==='free'?'자유 플랜':p+'일'}</button>`).join('')}
+          </div>
+          <div class="plan-preview" id="planPreview">전체 페이지를 입력하면 하루 권장 페이지를 계산해드려요</div>
+        </div>
+      </div>
+      <button class="btn btn-green" style="margin-top:16px;" data-action="confirm-add-book">독서 시작하기</button>
+    </div>`;
+}
+function updatePlanPreview(){
+  const total = Number(document.getElementById('bkTotal')?.value)||0;
+  const start = Number(document.getElementById('bkStart')?.value)||1;
+  const preview = document.getElementById('planPreview');
+  if(!preview) return;
+  if(bookAddPlan==='free'){
+    preview.innerHTML = '자유 플랜은 기간 제한 없이 편하게 기록만 해요';
+    return;
+  }
+  const days = Number(bookAddPlan);
+  if(total>start){
+    const perDay = Math.ceil((total-start+1)/days);
+    preview.innerHTML = `${total}페이지 / ${days}일<br><b>하루 평균 ${perDay}페이지</b>`;
+  }else{
+    preview.innerHTML = '전체 페이지를 입력하면 하루 권장 페이지를 계산해드려요';
+  }
+}
+
+/* ---------- 통계 ---------- */
+function renderStats(){
+  const s = computeStats();
+  const bars = last7DaysMinutes();
+  const maxMin = Math.max(1, ...bars.map(b=>b.minutes));
+  const streak = longestReadingStreak();
+
+  return `
+    <div class="topbar"><h1>통계</h1></div>
+    <div class="page">
+      <div class="seg">
+        <button class="${statsTab==='week'?'active':''}" data-stats-tab="week">이번 주</button>
+        <button class="${statsTab==='month'?'active':''}" data-stats-tab="month">이번 달</button>
+        <button class="${statsTab==='all'?'active':''}" data-stats-tab="all">전체</button>
+      </div>
+
+      <div class="section-title">운동</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="ico">💪</div><div class="lbl">운동 횟수</div><div class="num">${s.workoutCount}회</div></div>
+        <div class="stat-box"><div class="ico">⏱</div><div class="lbl">운동 시간</div><div class="num">${s.workoutMinutes}분</div></div>
+        <div class="stat-box"><div class="ico">🔥</div><div class="lbl">소모 칼로리</div><div class="num">${s.workoutCal}kcal</div></div>
+        <div class="stat-box"><div class="ico">📅</div><div class="lbl">최근 7일 평균</div><div class="num">${Math.round(bars.reduce((a,b)=>a+b.minutes,0)/7)}분</div></div>
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title" style="margin:0 0 4px;">최근 7일</div>
+        <div class="bars">
+          ${bars.map(b=>`
+            <div class="bar-col">
+              <div class="bar-fill ${b.minutes>0?'has':''}" style="height:${Math.max(4,(b.minutes/maxMin)*100)}%"></div>
+              <div class="bar-lbl" style="${b.isToday?'color:var(--orange-dark); font-weight:800;':''}">${b.label}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="section-title">독서</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="ico">📖</div><div class="lbl">독서한 날</div><div class="num">${s.readDays}일</div></div>
+        <div class="stat-box"><div class="ico">📄</div><div class="lbl">읽은 페이지</div><div class="num">${s.pagesRead}p</div></div>
+        <div class="stat-box"><div class="ico">📗</div><div class="lbl">완독한 책</div><div class="num">${s.completedBooks}권</div></div>
+        <div class="stat-box"><div class="ico">🎯</div><div class="lbl">전체 완독</div><div class="num">${state.books.filter(b=>b.completedDate).length}권</div></div>
+      </div>
+
+      <div class="streak-banner">
+        <div style="font-size:26px;">🔥</div>
+        <div>
+          <div class="n">${streak}일</div>
+          <div class="t">최장 연속 독서 기록</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---------- 설정 ---------- */
+function renderSettings(){
+  const days = [{d:2,l:'화요일'},{d:4,l:'목요일'},{d:6,l:'토요일'}];
+  const s = state.settings;
+  return `
+    <div class="topbar"><h1>설정</h1></div>
+    <div class="page">
+      <div class="section-title" style="margin-top:6px;">운동 알림</div>
+      <div class="card">
+        ${days.map(row=>{
+          const on = state.workout.days.includes(row.d);
+          const t = state.workout.times[row.d] || '19:00';
+          return `
+          <div class="set-row">
+            <div>
+              <div class="lbl">${row.l}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <input class="time-input" type="time" value="${t}" data-time-day="${row.d}" ${on?'':'disabled'}>
+              <div class="switch ${on?'on':''}" data-toggle-day="${row.d}"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="section-title">독서 알림</div>
+      <div class="card">
+        <div class="set-row">
+          <div>
+            <div class="lbl">매일 알림</div>
+            <div class="sub">끄더라도 독서 기록에는 문제없어요</div>
+          </div>
+          <div class="switch ${s.readingReminder?'on':''}" data-toggle="readingReminder"></div>
+        </div>
+        <div class="set-row">
+          <div class="lbl">알림 시간</div>
+          <input class="time-input" type="time" value="${s.readingReminderTime}" data-field="readingReminderTime" ${s.readingReminder?'':'disabled'}>
+        </div>
+      </div>
+
+      <div class="tip-box" style="margin-top:14px;">
+        <b>🔔 알림 안내</b>
+        브라우저 알림은 앱이 켜져 있을 때 동작해요. 먼저 알림을 허용해주세요.
+      </div>
+      <button class="btn btn-outline" style="margin-top:10px;" data-action="request-notif">브라우저 알림 허용하기</button>
+
+      <div class="section-title">홈 화면에 추가하기</div>
+      <div class="tip-box">
+        <b>📱 설치 방법</b>
+        iOS: Safari 공유 버튼 → '홈 화면에 추가'<br>
+        Android: Chrome 메뉴(⋮) → '홈 화면에 추가 / 앱 설치'
+      </div>
+
+      <div class="section-title">데이터</div>
+      <div class="card">
+        <button class="danger-btn" data-action="reset-data">모든 데이터 초기화</button>
+      </div>
+    </div>`;
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str||'';
+  return d.innerHTML;
+}
+
+/* =========================================================
+   이벤트 위임
+   문서 전체에 한 번만 바인딩합니다 (모달은 #app 바깥에 있으므로
+   #app에만 바인딩하면 모달 내부 버튼이 동작하지 않습니다).
+========================================================= */
+function attachHandlers(){
+  // 책 추가 폼 라이브 미리보기 (렌더마다 새로 생성되는 인풋이라 매번 재바인딩)
+  const bkTotal = document.getElementById('bkTotal');
+  const bkStart = document.getElementById('bkStart');
+  if(bkTotal){ bkTotal.addEventListener('input', updatePlanPreview); }
+  if(bkStart){ bkStart.addEventListener('input', updatePlanPreview); }
+
+  if(currentPage==='exercise-run') renderTimerScreen();
+}
+
+let delegationBound = false;
+function bindGlobalDelegation(){
+  if(delegationBound) return;
+  delegationBound = true;
+
+  document.addEventListener('click', (e)=>{
+    const navEl = e.target.closest('[data-nav]');
+    if(navEl){ go(navEl.dataset.nav); return; }
+
+    const actionEl = e.target.closest('[data-action]');
+    if(actionEl){ handleAction(actionEl.dataset.action, actionEl); return; }
+
+    const statsEl = e.target.closest('[data-stats-tab]');
+    if(statsEl){ statsTab = statsEl.dataset.statsTab; render(); return; }
+
+    const stepEl = e.target.closest('[data-step]');
+    if(stepEl){ handleStepClick(stepEl); return; }
+
+    const planEl = e.target.closest('[data-plan]');
+    if(planEl){
+      bookAddPlan = planEl.dataset.plan;
+      document.querySelectorAll('[data-plan]').forEach(o=>o.classList.toggle('selected', o.dataset.plan===bookAddPlan));
+      updatePlanPreview();
+      return;
+    }
+
+    const toggleDayEl = e.target.closest('[data-toggle-day]');
+    if(toggleDayEl){
+      const d = Number(toggleDayEl.dataset.toggleDay);
+      const idx = state.workout.days.indexOf(d);
+      if(idx>=0) state.workout.days.splice(idx,1);
+      else { state.workout.days.push(d); if(!state.workout.times[d]) state.workout.times[d]='19:00'; }
+      saveState(); render();
+      return;
+    }
+
+    const toggleEl = e.target.closest('[data-toggle]');
+    if(toggleEl){
+      const key = toggleEl.dataset.toggle;
+      state.settings[key] = !state.settings[key];
+      saveState(); render();
+      return;
+    }
+  });
+
+  document.addEventListener('change', (e)=>{
+    const timeDayEl = e.target.closest('[data-time-day]');
+    if(timeDayEl){
+      state.workout.times[timeDayEl.dataset.timeDay] = timeDayEl.value;
+      saveState();
+      return;
+    }
+    const fieldEl = e.target.closest('[data-field]');
+    if(fieldEl){
+      state.settings[fieldEl.dataset.field] = fieldEl.value;
+      saveState();
+      return;
+    }
+  });
+}
+
+function handleAction(action, el){
+  if(action==='start-workout') return startWorkout();
+  if(action==='pause-resume') return pauseResume();
+  if(action==='skip-phase') return skipPhase();
+  if(action==='end-early'){
+    if(confirm('운동을 종료할까요? 지금까지의 기록으로 저장돼요.')) endWorkoutEarly();
+    return;
+  }
+  if(action==='confirm-exit-timer'){
+    if(confirm('운동을 종료할까요? 진행 중인 기록은 저장되지 않아요.')){
+      clearInterval(timer.interval);
+      go('exercise');
+    }
+    return;
+  }
+  if(action==='save-workout'){
+    const durStr = document.getElementById('inpDuration').value.trim();
+    let seconds = timer.elapsedTotal;
+    const m = durStr.match(/^(\d{1,3}):(\d{2})$/);
+    if(m) seconds = Number(m[1])*60+Number(m[2]);
+    const calories = Number(document.getElementById('inpCalories').value)||0;
+    const note = document.getElementById('inpNote').value;
+    return saveWorkoutLog(seconds, calories, note);
+  }
+  if(action==='open-reading-log'){
+    const book = activeBook();
+    if(!book) return;
+    openModal(readingLogModalHtml());
+    bindReadingStepper(book.currentPage);
+    return;
+  }
+  if(action==='confirm-reading-log'){
+    return saveReadingLog(readingStepCurrent);
+  }
+  if(action==='confirm-add-book'){
+    const title = document.getElementById('bkTitle').value.trim();
+    const author = document.getElementById('bkAuthor').value.trim();
+    const total = Number(document.getElementById('bkTotal').value);
+    const start = Number(document.getElementById('bkStart').value)||1;
+    if(!title){ toast('책 제목을 입력해주세요'); return; }
+    if(!total || total<=start){ toast('전체 페이지를 확인해주세요'); return; }
+    const planDays = bookAddPlan==='free' ? null : Number(bookAddPlan);
+    return addBook({title, author, totalPages:total, startPage:start, planType:bookAddPlan==='free'?'free':'fixed', planDays});
+  }
+  if(action==='request-notif'){
+    if(!('Notification' in window)){ toast('이 브라우저는 알림을 지원하지 않아요'); return; }
+    Notification.requestPermission().then(p=>{
+      toast(p==='granted' ? '알림이 허용되었어요' : '알림이 거부되었어요');
+    });
+    return;
+  }
+  if(action==='reset-data'){
+    if(confirm('모든 운동/독서 기록과 설정이 삭제돼요. 계속할까요?')){
+      localStorage.removeItem(STORAGE_KEY);
+      state = defaultState();
+      go('home');
+      toast('초기화되었어요');
+    }
+    return;
+  }
+}
+
+let readingStepCurrent = 0;
+function bindReadingStepper(startPage){
+  readingStepCurrent = startPage;
+  updateReadingStepper();
+}
+function updateReadingStepper(){
+  const book = activeBook();
+  const numEl = document.getElementById('stepNum');
+  if(!book || !numEl) return;
+  numEl.textContent = readingStepCurrent;
+  const diff = readingStepCurrent - book.currentPage;
+  const diffEl = document.getElementById('diffLine');
+  const btn = document.getElementById('confirmReadBtn');
+  if(diff>0){
+    diffEl.textContent = `오늘 읽은 페이지 +${diff}페이지`;
+    diffEl.classList.remove('zero');
+    btn.disabled=false;
+  }else{
+    diffEl.textContent = '현재 페이지보다 많이 읽어야 기록할 수 있어요';
+    diffEl.classList.add('zero');
+    btn.disabled=true;
+  }
+}
+function handleStepClick(stepEl){
+  const book = activeBook();
+  if(!book) return;
+  readingStepCurrent = Math.max(book.currentPage, Math.min(book.totalPages, readingStepCurrent+Number(stepEl.dataset.step)));
+  updateReadingStepper();
+}
+
+/* =========================================================
+   시작
+========================================================= */
+bindGlobalDelegation();
+render();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
