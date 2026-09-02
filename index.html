@@ -370,6 +370,7 @@ function defaultState(){
     books: [],      // {id,title,author,totalPages,startPage,currentPage,planType,planDays,startDate,completedDate}
     activeBookId: null,
     readingLog: [], // {date, bookId, page, pagesRead}
+    readingTimeLog: [], // {date, seconds, label}
     settings: {
       workoutReminder: true,
       readingReminder: false,
@@ -436,7 +437,7 @@ let statsTab = 'week'; // week | month | all
 
 function parentTabOf(page){
   if(page==='exercise-run'||page==='exercise-done') return 'exercise';
-  if(page==='book-add') return 'reading';
+  if(page==='book-add'||page==='reading-timer-setup'||page==='reading-timer-run'||page==='reading-timer-done') return 'reading';
   return page;
 }
 function go(page){ currentPage = page; render(); window.scrollTo(0,0); }
@@ -568,10 +569,11 @@ function addBook(data){
   toast('새 책을 시작했어요 📖');
   go('reading');
 }
-function saveReadingLog(newPage){
+function applyReadingPageUpdate(newPage){
   const book = activeBook();
-  if(!book) return;
+  if(!book) return {pagesRead:0, completedNow:false};
   const pagesRead = newPage - book.currentPage;
+  if(pagesRead<=0) return {pagesRead:0, completedNow:false};
   state.readingLog.push({date: todayStr(), bookId: book.id, page:newPage, pagesRead});
   book.currentPage = newPage;
   let completedNow=false;
@@ -579,16 +581,112 @@ function saveReadingLog(newPage){
     book.completedDate = todayStr();
     completedNow=true;
   }
+  return {pagesRead, completedNow};
+}
+function saveReadingLog(newPage){
+  const book = activeBook();
+  if(!book) return;
+  const result = applyReadingPageUpdate(newPage);
   saveState();
   closeModal();
-  if(completedNow){
+  if(result.completedNow){
     toast('책을 완독했어요! 🎉 축하해요');
     state.activeBookId = null;
     saveState();
   }else{
-    toast(`+${pagesRead}페이지 기록했어요`);
+    toast(`+${result.pagesRead}페이지 기록했어요`);
   }
   go('reading');
+}
+
+/* =========================================================
+   독서 타이머 (15/30/45/60분 · 자유)
+========================================================= */
+const READING_DURATIONS = [
+  {key:'15', minutes:15, label:'15분'},
+  {key:'30', minutes:30, label:'30분'},
+  {key:'45', minutes:45, label:'45분'},
+  {key:'60', minutes:60, label:'1시간'},
+  {key:'free', minutes:null, label:'자유'}
+];
+let timerReading = {
+  mode:'fixed', totalSeconds:0, remaining:0, elapsed:0, running:false,
+  interval:null, startedAt:0, elapsedTotal:0, label:''
+};
+function startReadingTimer(key){
+  const preset = READING_DURATIONS.find(d=>d.key===key);
+  if(!preset) return;
+  clearInterval(timerReading.interval);
+  timerReading.mode = preset.minutes ? 'fixed' : 'free';
+  timerReading.label = preset.label;
+  timerReading.startedAt = Date.now();
+  timerReading.running = true;
+  if(preset.minutes){
+    timerReading.totalSeconds = preset.minutes*60;
+    timerReading.remaining = timerReading.totalSeconds;
+    timerReading.phaseEnd = Date.now()+timerReading.remaining*1000;
+  }else{
+    timerReading.elapsed = 0;
+  }
+  timerReading.interval = setInterval(tickReading, 1000);
+  go('reading-timer-run');
+}
+function tickReading(){
+  if(!timerReading.running) return;
+  if(timerReading.mode==='fixed'){
+    timerReading.remaining = Math.max(0, Math.round((timerReading.phaseEnd-Date.now())/1000));
+    if(timerReading.remaining<=0){ finishReadingTimer(); return; }
+  }else{
+    timerReading.elapsed = Math.round((Date.now()-timerReading.startedAt)/1000);
+  }
+  renderReadingTimerScreen();
+}
+function pauseResumeReading(){
+  if(timerReading.running){
+    timerReading.running=false;
+    clearInterval(timerReading.interval);
+  }else{
+    timerReading.running=true;
+    if(timerReading.mode==='fixed'){
+      timerReading.phaseEnd = Date.now()+timerReading.remaining*1000;
+    }else{
+      timerReading.startedAt = Date.now()-timerReading.elapsed*1000;
+    }
+    timerReading.interval = setInterval(tickReading, 1000);
+  }
+  renderReadingTimerScreen();
+}
+function finishReadingTimer(){
+  clearInterval(timerReading.interval);
+  timerReading.elapsedTotal = timerReading.mode==='fixed' ? timerReading.totalSeconds : timerReading.elapsed;
+  go('reading-timer-done');
+}
+function endReadingTimerEarly(){
+  clearInterval(timerReading.interval);
+  timerReading.elapsedTotal = timerReading.mode==='fixed'
+    ? (timerReading.totalSeconds-timerReading.remaining)
+    : timerReading.elapsed;
+  go('reading-timer-done');
+}
+function finalizeReadingTimer(seconds){
+  const book = activeBook();
+  state.readingTimeLog.push({date: todayStr(), seconds, label: timerReading.label});
+  let msg = `독서 ${fmtMinSec(seconds)} 기록했어요`;
+  if(book){
+    const newPage = readingStepCurrent;
+    if(newPage > book.currentPage){
+      const result = applyReadingPageUpdate(newPage);
+      if(result.completedNow){
+        msg = '책을 완독했어요! 🎉 축하해요';
+        state.activeBookId = null;
+      }else{
+        msg = `${fmtMinSec(seconds)} 독서 · +${result.pagesRead}페이지 기록했어요`;
+      }
+    }
+  }
+  saveState();
+  toast(msg);
+  go('home');
 }
 
 /* =========================================================
@@ -604,16 +702,18 @@ function computeStats(){
   const [start,end] = statsRange();
   const wLogs = state.workoutLog.filter(w=>inRange(w.date,start,end));
   const rLogs = state.readingLog.filter(r=>inRange(r.date,start,end));
+  const rTimeLogs = state.readingTimeLog.filter(r=>inRange(r.date,start,end));
   const workoutCount = wLogs.length;
   const workoutMinutes = Math.round(wLogs.reduce((s,w)=>s+w.seconds,0)/60);
   const workoutCal = wLogs.reduce((s,w)=>s+(Number(w.calories)||0),0);
-  const readDays = new Set(rLogs.map(r=>r.date)).size;
+  const readDays = new Set([...rLogs.map(r=>r.date), ...rTimeLogs.map(r=>r.date)]).size;
   const pagesRead = rLogs.reduce((s,r)=>s+Math.max(0,r.pagesRead),0);
+  const readMinutes = Math.round(rTimeLogs.reduce((s,r)=>s+r.seconds,0)/60);
   const completedBooks = state.books.filter(b=>b.completedDate && inRange(b.completedDate,start,end)).length;
-  return {workoutCount, workoutMinutes, workoutCal, readDays, pagesRead, completedBooks};
+  return {workoutCount, workoutMinutes, workoutCal, readDays, pagesRead, readMinutes, completedBooks};
 }
 function longestReadingStreak(){
-  const dates = [...new Set(state.readingLog.map(r=>r.date))].sort();
+  const dates = [...new Set([...state.readingLog.map(r=>r.date), ...state.readingTimeLog.map(r=>r.date)])].sort();
   if(dates.length===0) return 0;
   let longest=1, cur=1;
   for(let i=1;i<dates.length;i++){
@@ -695,12 +795,16 @@ function render(){
   else if(currentPage==='exercise-done') html = renderExerciseDone();
   else if(currentPage==='reading') html = renderReading();
   else if(currentPage==='book-add') html = renderBookAdd();
+  else if(currentPage==='reading-timer-setup') html = renderReadingTimerSetup();
+  else if(currentPage==='reading-timer-run') html = renderReadingTimerRun();
+  else if(currentPage==='reading-timer-done') html = renderReadingTimerDone();
   else if(currentPage==='stats') html = renderStats();
   else if(currentPage==='settings') html = renderSettings();
 
-  if(currentPage!=='exercise-run') html += renderBottomNav();
+  const noNav = currentPage==='exercise-run' || currentPage==='reading-timer-run';
+  if(!noNav) html += renderBottomNav();
   app.innerHTML = html;
-  app.style.paddingBottom = currentPage==='exercise-run' ? '24px' : '';
+  app.style.paddingBottom = noNav ? '24px' : '';
   attachHandlers();
 }
 
@@ -927,6 +1031,7 @@ function renderReading(){
         <div class="empty-title">읽고 있는 책이 없어요</div>
         <div class="empty-desc">새 책을 등록하고 오늘부터 독서를 시작해보세요. 페이지만 기록하면 진행률은 자동으로 계산돼요.</div>
         <button class="btn btn-green empty-cta" data-nav="book-add">＋ 새 책 추가하기</button>
+        <button class="btn btn-outline empty-cta" style="margin-top:10px;" data-nav="reading-timer-setup">⏱ 타이머로 먼저 읽기</button>
       </div>`;
   }
 
@@ -959,6 +1064,7 @@ function renderReading(){
           <div class="pace-box"><div class="label">자유 플랜으로 진행 중</div></div>`}
 
         <button class="btn btn-green" style="margin-top:16px;" data-action="open-reading-log">오늘 읽은 페이지 기록</button>
+        <button class="btn btn-outline" style="margin-top:10px;" data-nav="reading-timer-setup">⏱ 독서 타이머로 읽기</button>
       </div>
 
       ${completedBooks.length ? `
@@ -1049,6 +1155,100 @@ function updatePlanPreview(){
   }
 }
 
+/* ---------- 독서 타이머 ---------- */
+function renderReadingTimerSetup(){
+  return `
+    <div class="topbar back-row">
+      <button class="icon-btn" data-nav="reading">←</button>
+      <h1 style="font-size:17px;">독서 타이머</h1>
+      <div style="width:38px;"></div>
+    </div>
+    <div class="page">
+      <div class="card" style="text-align:center;">
+        <div style="font-size:28px;">⏱</div>
+        <div style="font-weight:700; font-size:16px; margin-top:8px;">얼마나 읽으실 건가요?</div>
+        <div style="font-size:13px; color:var(--text-dim); margin-top:4px;">시간을 정해두고 집중해서 읽어보세요</div>
+        <div class="plan-grid" style="margin-top:18px;">
+          ${READING_DURATIONS.map(d=>`
+            <button class="plan-opt" data-duration="${d.key}" style="${d.key==='free'?'grid-column:1 / -1;':''}">${d.label}</button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderReadingTimerRun(){
+  return `
+    <div class="topbar back-row">
+      <button class="icon-btn" data-action="confirm-exit-reading-timer">✕</button>
+      <div><h1 style="font-size:16px;">독서 중</h1></div>
+      <div style="width:38px;"></div>
+    </div>
+    <div class="page timer-wrap" id="readingTimerLive"></div>`;
+}
+
+function renderReadingTimerScreen(){
+  const wrap = document.getElementById('readingTimerLive');
+  if(!wrap) return;
+  const book = activeBook();
+  const isFixed = timerReading.mode==='fixed';
+  const timeLabel = isFixed ? fmtMinSec(timerReading.remaining) : fmtMinSec(timerReading.elapsed);
+  const pct = isFixed ? Math.round(((timerReading.totalSeconds-timerReading.remaining)/timerReading.totalSeconds)*100) : 100;
+
+  wrap.innerHTML = `
+    <div class="timer-phase-label" style="color:var(--green-dark); background:var(--green-wash);">📖 ${timerReading.label}${book?' · '+escapeHtml(book.title):''}</div>
+    <div class="timer-ex-name">${isFixed ? '집중해서 읽어볼까요?' : '자유롭게 읽는 중'}</div>
+    <div class="timer-ex-desc">${isFixed ? '타이머가 끝나면 자동으로 알려드려요' : '다 읽으셨으면 종료를 눌러주세요'}</div>
+    <div class="timer-ring" style="--pct:${pct}; background:conic-gradient(var(--green) calc(var(--pct,0)*1%), var(--line) 0);">
+      <div class="timer-time">${timeLabel}</div>
+    </div>
+    <div class="timer-controls">
+      <button class="btn btn-outline" data-action="pause-resume-reading">${timerReading.running?'⏸ 일시정지':'▶ 계속하기'}</button>
+      <button class="btn btn-ghost" style="background:var(--green-wash); color:var(--green-dark);" data-action="end-reading-timer">종료하기</button>
+    </div>`;
+}
+
+function renderReadingTimerDone(){
+  const book = activeBook();
+  return `
+    <div class="topbar"><h1>독서 완료</h1></div>
+    <div class="page">
+      <div class="confetti-emoji">📖</div>
+      <div style="text-align:center; font-weight:800; font-size:18px; margin-top:6px;">오늘 독서 완료!</div>
+      <div style="text-align:center; color:var(--text-dim); font-size:13.5px; margin-top:4px;">${timerReading.label} 코스를 마쳤어요</div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="field" style="margin-top:0;">
+          <label>독서 시간</label>
+          <input id="inpReadDuration" type="text" value="${fmtMinSec(timerReading.elapsedTotal)}">
+          <div class="hint">mm:ss 형식으로 직접 수정할 수 있어요</div>
+        </div>
+      </div>
+
+      ${book ? `
+        <div class="card" style="margin-top:14px;">
+          <div style="text-align:center; font-size:13px; color:var(--text-dim); font-weight:600;">현재 페이지 <b style="color:var(--text)">${book.currentPage}p</b></div>
+          <div class="field">
+            <label style="text-align:center; display:block;">오늘 어디까지 읽으셨나요?</label>
+            <div class="stepper">
+              <button data-step="-1">−</button>
+              <div class="num" id="stepNum">${book.currentPage}</div>
+              <button data-step="1">＋</button>
+            </div>
+          </div>
+          <div class="diff-line zero" id="diffLine">아직 변화가 없어요</div>
+        </div>
+        <button class="btn btn-green" style="margin-top:16px;" data-action="confirm-reading-timer-done">기록 저장</button>
+        <button class="btn btn-outline" style="margin-top:10px;" data-action="confirm-reading-timer-done-skip">페이지는 다음에 기록할게요</button>
+      ` : `
+        <div class="tip-box" style="margin-top:14px;">
+          <b>📚 팁</b>
+          책을 등록해두면 읽은 페이지도 함께 기록할 수 있어요.
+        </div>
+        <button class="btn btn-green" style="margin-top:14px;" data-action="confirm-reading-timer-done-skip">기록 저장</button>
+      `}
+    </div>`;
+}
+
 /* ---------- 통계 ---------- */
 function renderStats(){
   const s = computeStats();
@@ -1088,8 +1288,8 @@ function renderStats(){
       <div class="stat-grid">
         <div class="stat-box"><div class="ico">📖</div><div class="lbl">독서한 날</div><div class="num">${s.readDays}일</div></div>
         <div class="stat-box"><div class="ico">📄</div><div class="lbl">읽은 페이지</div><div class="num">${s.pagesRead}p</div></div>
+        <div class="stat-box"><div class="ico">⏱</div><div class="lbl">독서 시간</div><div class="num">${s.readMinutes}분</div></div>
         <div class="stat-box"><div class="ico">📗</div><div class="lbl">완독한 책</div><div class="num">${s.completedBooks}권</div></div>
-        <div class="stat-box"><div class="ico">🎯</div><div class="lbl">전체 완독</div><div class="num">${state.books.filter(b=>b.completedDate).length}권</div></div>
       </div>
 
       <div class="streak-banner">
@@ -1181,6 +1381,11 @@ function attachHandlers(){
   if(bkStart){ bkStart.addEventListener('input', updatePlanPreview); }
 
   if(currentPage==='exercise-run') renderTimerScreen();
+  if(currentPage==='reading-timer-run') renderReadingTimerScreen();
+  if(currentPage==='reading-timer-done'){
+    const book = activeBook();
+    if(book) bindReadingStepper(book.currentPage);
+  }
 }
 
 let delegationBound = false;
@@ -1208,6 +1413,9 @@ function bindGlobalDelegation(){
       updatePlanPreview();
       return;
     }
+
+    const durationEl = e.target.closest('[data-duration]');
+    if(durationEl){ startReadingTimer(durationEl.dataset.duration); return; }
 
     const toggleDayEl = e.target.closest('[data-toggle-day]');
     if(toggleDayEl){
@@ -1288,6 +1496,28 @@ function handleAction(action, el){
     const planDays = bookAddPlan==='free' ? null : Number(bookAddPlan);
     return addBook({title, author, totalPages:total, startPage:start, planType:bookAddPlan==='free'?'free':'fixed', planDays});
   }
+  if(action==='pause-resume-reading') return pauseResumeReading();
+  if(action==='end-reading-timer'){
+    if(confirm('독서를 종료할까요? 지금까지 읽은 시간으로 저장돼요.')) endReadingTimerEarly();
+    return;
+  }
+  if(action==='confirm-exit-reading-timer'){
+    if(confirm('독서 타이머를 종료할까요? 진행 중인 기록은 저장되지 않아요.')){
+      clearInterval(timerReading.interval);
+      go('reading');
+    }
+    return;
+  }
+  if(action==='confirm-reading-timer-done' || action==='confirm-reading-timer-done-skip'){
+    const durInput = document.getElementById('inpReadDuration');
+    let seconds = timerReading.elapsedTotal;
+    if(durInput){
+      const m = durInput.value.trim().match(/^(\d{1,3}):(\d{2})$/);
+      if(m) seconds = Number(m[1])*60+Number(m[2]);
+    }
+    if(action==='confirm-reading-timer-done-skip') readingStepCurrent = (activeBook()||{currentPage:0}).currentPage;
+    return finalizeReadingTimer(seconds);
+  }
   if(action==='request-notif'){
     if(!('Notification' in window)){ toast('이 브라우저는 알림을 지원하지 않아요'); return; }
     Notification.requestPermission().then(p=>{
@@ -1322,11 +1552,11 @@ function updateReadingStepper(){
   if(diff>0){
     diffEl.textContent = `오늘 읽은 페이지 +${diff}페이지`;
     diffEl.classList.remove('zero');
-    btn.disabled=false;
+    if(btn) btn.disabled=false;
   }else{
     diffEl.textContent = '현재 페이지보다 많이 읽어야 기록할 수 있어요';
     diffEl.classList.add('zero');
-    btn.disabled=true;
+    if(btn) btn.disabled=true;
   }
 }
 function handleStepClick(stepEl){
